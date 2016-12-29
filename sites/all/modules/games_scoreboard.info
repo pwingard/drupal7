@@ -1,6 +1,0 @@
-name = games_scoreboard
-description = A test scoreboard of NCAA games from a JSON feed
-core = 7.x
-package = Custom
-
-stylesheets[all][] = css/ncaa.css
