@@ -1,0 +1,301 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', TRUE);
+ini_set('display_startup_errors', TRUE);
+
+/**
+ * @file
+ * A block module to display a scoreboard of games from NCAA JSON feed
+ */
+
+/**
+ * Implements hook_help().
+ *
+ * Displays help and module information.
+ *
+ * @param path 
+ *   Which path of the site we're using to display help
+ * @param arg 
+ *   Array that holds the current path as returned from arg() function
+ */
+function games_scoreboard_help($path, $arg) {
+  switch ($path) {
+    case "admin/help#games_scoreboard":
+      return '' . t("See a list of NCAA games...") . '';
+      break;
+  }
+} 
+
+/**
+ * Implements hook_block_info().
+ */
+function games_scoreboard_block_info() {
+  $blocks['games_scoreboard'] = array(
+    // The name that will appear in the block list.
+    'info' => t('Games scoreboard'),
+    // Default setting.
+    'cache' => DRUPAL_CACHE_PER_ROLE,
+  );
+  return $blocks;
+}
+
+/**
+ * Custom content function. 
+ * 
+ * 
+ * @return 
+ *   A result set of the targeted posts.
+ */
+function games_scoreboard_contents(){
+
+  $jsonDataPath = "http://i.turner.ncaa.com/sites/default/files/external/test/scoreboard.json";
+
+  //retreive and parse the json from URL.
+  $jsonData= drupal_http_request($jsonDataPath);
+  $gamesScoreboardArr = drupal_json_decode($jsonData->data);
+
+  return $gamesScoreboardArr;  
+}
+
+/**
+ * Implements hook_block_view().
+ * 
+ * Prepares the contents of the block.
+ */
+function games_scoreboard_block_view($delta = '') {
+  switch ($delta) {
+    case 'games_scoreboard':
+      $block['subject'] = t('Games scoreboard');
+
+//Games should be presented sorted by the game status - live, pre, final - and then by time.
+ 
+        $results = games_scoreboard_contents();
+        // Array to contain items for the block to render.
+        //  print_r($result);
+        /*
+    [0] => Array
+        (
+            [state] => final
+            [startTimeDisplay] => 12:00 PM ET
+            [startTimeEpoch] => 1426262400
+            [home] => Array
+                (
+                    [rank] => 24
+                    [name] => Davidson
+                    [winner] => true
+                    [record] => 24-6
+                    [score] => 67
+                )
+
+            [away] => Array
+                (
+                    [rank] => 0
+                    [name] => La Salle
+                    [winner] => false
+                    [record] => 17-16
+                    [score] => 66
+                )
+        )
+         */
+
+        //group results by state:  live, pre, final
+        foreach ($results as $result) {
+            $resultsByStates[$result["state"]][]=$result;
+        }
+        
+        //sort each game state array by time
+        foreach ($resultsByStates as $state => $stateArr) {
+            usort($stateArr,  function ($a, $b) {     
+            return strcmp($a['startTimeEpoch'], $b['startTimeEpoch']); 
+            });
+        }
+        
+        //print_r($resultsByStates);
+        /*
+(
+        [final] => Array
+        (
+            [0] => Array
+                (
+                    [state] => final
+                    [startTimeDisplay] => 12:00 PM ET
+                    [startTimeEpoch] => 1426262400
+                    [home] => Array
+                        (
+                            [rank] => 24
+                            [name] => Davidson
+                            [winner] => true
+                            [record] => 24-6
+                            [score] => 67
+                        )
+
+                    [away] => Array
+                        (
+                            [rank] => 0
+                            [name] => La Salle
+                            [winner] => false
+                            [record] => 17-16
+                            [score] => 66
+                        )
+
+                )
+         ...
+        [live] => Array
+        (
+            [0] => Array
+                (
+                    [state] => live
+                    [startTimeDisplay] => 12:00 PM ET
+                    [startTimeEpoch] => 1426262400
+                    [home] => Array
+                        (
+                            [rank] => 20
+                            [name] => SMU
+                            [winner] => false
+                            [score] => 74
+                            [record] => 25-6
+                        )
+
+                    [away] => Array
+                        (
+                            [rank] => 0
+                            [name] => East Carolina
+                            [winner] => false
+                            [score] => 68
+                            [record] => 14-19
+                        )
+
+                )
+         ...
+        [pre] => Array
+        (
+            [0] => Array
+                (
+                    [state] => pre
+                    [startTimeDisplay] => 12:00 PM ET
+                    [startTimeEpoch] => 1426262400
+                    [home] => Array
+                        (
+                            [rank] => 6
+                            [name] => Wisconsin
+                            [winner] => false
+                            [score] => 
+                            [record] => 29-3
+                        )
+
+                    [away] => Array
+                        (
+                            [rank] => 0
+                            [name] => Michigan
+                            [winner] => false
+                            [score] => 
+                            [record] => 16-16
+                        )
+
+                )
+         ...
+         */
+        
+        }
+        
+        $items = array();
+        // Iterate over the result set and format as links.
+        foreach ($resultsByStates as $resultsByState) {
+            foreach ($resultsByState as &$node) {
+                if($node["away"]["rank"]==0) $node["away"]["rank"]="-";
+
+                if($node["home"]["rank"]==0) $node["home"]["rank"]="-";
+
+                /*
+                Each game section should contain:
+                the game status (the state)
+                both team names, home and away
+                team ranks and records
+                the team's scores (if any)
+                 */
+                $items[$node["state"]][] =array("data"=>
+                    t("<p><strong>"
+                    .$node["away"]["name"]."</strong> "
+                    .", Record ". $node["away"]["record"].", Rank ". $node["away"]["rank"]
+               
+                    ." @<strong>"
+                    . $node["home"]["name"]."</strong> "
+                    .", Record ". $node["home"]["record"].", Rank ". $node["home"]["rank"]
+                    
+                    ." </p><p>Score ". $node["away"]["score"]
+                    ."-". $node["home"]["score"].", "
+                    
+                    . " " .stateFormat($node["state"])." "
+                    .$node["startTimeDisplay"]
+                    
+                    ."</p>"
+                            ),
+                    );
+          }
+        }
+          
+       // No content in the last week.
+        if (empty($items)) {
+          $block['content'] = t('No game scores available.');  
+        } 
+        else {
+          // Pass data through theme function.
+          $block['content'] = theme('item_list', array(
+            'items' => array_merge($items["live"], $items["pre"],$items["final"])));
+        }
+    return $block;
+  }
+  
+/**
+ * Implements hook_menu().
+ */
+function games_scoreboard_menu() {
+    $items = array();
+
+    $items['admin/config/content/games_scoreboard'] = array(
+      'title' => 'Games Scoreboard',
+      'description' => 'NCAA Basketball game scoreboard',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('games_scoreboard_form'),
+      'access arguments' => array('access administration pages'),
+      'type' => MENU_NORMAL_ITEM,
+  );
+
+  return $items;
+}
+
+/**
+ * Page callback: Current posts settings
+ *
+ * @see current_posts_menu()
+ */
+function games_scoreboard_form($form, &$form_state) {
+  $form['games_scoreboard_max'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Maximum number of games'),
+    '#default_value' => variable_get('games_scoreboard_max', 25),
+    '#size' => 2,
+    '#maxlength' => 2,
+    '#description' => t('The maximum number of games to display in the block.'),
+    '#required' => TRUE,
+  );
+
+  return system_settings_form($form);
+}
+
+function stateFormat($state){
+      switch ($state) {
+          case "final":
+              return "Final ";
+          case "pre":
+              return "Starting at ";
+          case "live":
+              return "Live as of ";
+
+              break;
+
+          default:
+              return $state;
+              break;
+      }
+  }
