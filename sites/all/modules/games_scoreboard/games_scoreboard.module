@@ -70,33 +70,6 @@ function games_scoreboard_block_view($delta = '') {
 //Games should be presented sorted by the game status - live, pre, final - and then by time.
  
         $results = games_scoreboard_contents();
-        // Array to contain items for the block to render.
-        //  print_r($result);
-        /*
-    [0] => Array
-        (
-            [state] => final
-            [startTimeDisplay] => 12:00 PM ET
-            [startTimeEpoch] => 1426262400
-            [home] => Array
-                (
-                    [rank] => 24
-                    [name] => Davidson
-                    [winner] => true
-                    [record] => 24-6
-                    [score] => 67
-                )
-
-            [away] => Array
-                (
-                    [rank] => 0
-                    [name] => La Salle
-                    [winner] => false
-                    [record] => 17-16
-                    [score] => 66
-                )
-        )
-         */
 
         //group results by state:  live, pre, final
         foreach ($results as $result) {
@@ -110,100 +83,15 @@ function games_scoreboard_block_view($delta = '') {
             });
         }
         
-        //print_r($resultsByStates);
-        /*
-(
-        [final] => Array
-        (
-            [0] => Array
-                (
-                    [state] => final
-                    [startTimeDisplay] => 12:00 PM ET
-                    [startTimeEpoch] => 1426262400
-                    [home] => Array
-                        (
-                            [rank] => 24
-                            [name] => Davidson
-                            [winner] => true
-                            [record] => 24-6
-                            [score] => 67
-                        )
-
-                    [away] => Array
-                        (
-                            [rank] => 0
-                            [name] => La Salle
-                            [winner] => false
-                            [record] => 17-16
-                            [score] => 66
-                        )
-
-                )
-         ...
-        [live] => Array
-        (
-            [0] => Array
-                (
-                    [state] => live
-                    [startTimeDisplay] => 12:00 PM ET
-                    [startTimeEpoch] => 1426262400
-                    [home] => Array
-                        (
-                            [rank] => 20
-                            [name] => SMU
-                            [winner] => false
-                            [score] => 74
-                            [record] => 25-6
-                        )
-
-                    [away] => Array
-                        (
-                            [rank] => 0
-                            [name] => East Carolina
-                            [winner] => false
-                            [score] => 68
-                            [record] => 14-19
-                        )
-
-                )
-         ...
-        [pre] => Array
-        (
-            [0] => Array
-                (
-                    [state] => pre
-                    [startTimeDisplay] => 12:00 PM ET
-                    [startTimeEpoch] => 1426262400
-                    [home] => Array
-                        (
-                            [rank] => 6
-                            [name] => Wisconsin
-                            [winner] => false
-                            [score] => 
-                            [record] => 29-3
-                        )
-
-                    [away] => Array
-                        (
-                            [rank] => 0
-                            [name] => Michigan
-                            [winner] => false
-                            [score] => 
-                            [record] => 16-16
-                        )
-
-                )
-         ...
-         */
-        
         }
         
         $items = array();
         // Iterate over the result set and format as links.
         foreach ($resultsByStates as $resultsByState) {
             foreach ($resultsByState as &$node) {
+                
+                //ranks of '0' altered to '-'
                 if($node["away"]["rank"]==0) $node["away"]["rank"]="-";
-
                 if($node["home"]["rank"]==0) $node["home"]["rank"]="-";
 
                 /*
@@ -272,7 +160,7 @@ function games_scoreboard_menu() {
 function games_scoreboard_form($form, &$form_state) {
   $form['games_scoreboard_max'] = array(
     '#type' => 'textfield',
-    '#title' => t('Maximum number of games'),
+    '#title' => t('Maximum number of games shown'),
     '#default_value' => variable_get('games_scoreboard_max', 25),
     '#size' => 2,
     '#maxlength' => 2,
@@ -283,6 +171,7 @@ function games_scoreboard_form($form, &$form_state) {
   return system_settings_form($form);
 }
 
+//clarify game state in output
 function stateFormat($state){
       switch ($state) {
           case "final":
@@ -291,9 +180,7 @@ function stateFormat($state){
               return "Starting at ";
           case "live":
               return "Live as of ";
-
               break;
-
           default:
               return $state;
               break;
